@@ -1,0 +1,48 @@
+---
+- name: Reboot AWS EC2 instance and deploy websrv role
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Reboot the instance
+      amazon.aws.ec2_instance:
+        region: "{{ region }}"
+        instance_ids:
+          - "{{ instance_id }}"
+        state: rebooted
+      register: reboot_result
+
+    - name: Wait until instance is running
+      amazon.aws.ec2_instance:
+        instance_ids:
+          - "{{ instance_id }}"
+        region: "{{ region }}"
+      register: instance_info
+      until: instance_info.instances[0].state.name == 'running'
+      retries: 10
+      delay: 15
+
+    - name: Wait for SSH to become available
+      wait_for:
+        port: 22
+        delay: 10
+        timeout: 300
+        state: present
+
+    - name: Get public IP address of the instance
+      set_fact:
+        public_ip: "{{ instance_info.instances[0].public_ip_address }}"
+
+
+    - name: Add the instance to the host group
+      add_host:
+        hostname: "{{ instance_info.instances[0].public_ip_address }}"
+        groupname: aws_instances
+
+- name: Deploy websrv role
+  hosts: aws_instances
+  gather_facts: no
+  become: yes
+  roles:
+    - websrv
