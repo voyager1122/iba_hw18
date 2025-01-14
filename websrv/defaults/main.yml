@@ -1,0 +1,6 @@
+---
+# Default values for Tomcat version and download URL
+
+tomcat_version: "apache-tomcat-9.0.53"
+tomcat_url: "https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.53/bin/{{ tomcat_version }}.tar.gz"
+

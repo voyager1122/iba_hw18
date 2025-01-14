@@ -1,0 +1,71 @@
+---
+- name: Install Java (required by Tomcat)
+  apt:
+    name: openjdk-11-jdk
+    state: present
+    update_cache: yes
+
+- name: Download Tomcat
+  get_url:
+    url: "{{ tomcat_url }}"
+    dest: "/tmp/{{ tomcat_version }}.tar.gz"
+    mode: '0644'
+
+- name: Extract Tomcat archive
+  unarchive:
+    src: "/tmp/{{ tomcat_version }}.tar.gz"
+    dest: /opt/
+    remote_src: yes
+    creates: "/opt/{{ tomcat_version }}"
+
+- name: Create symlink to tomcat directory
+  file:
+    src: "/opt/{{ tomcat_version }}"
+    dest: "/opt/tomcat"
+    state: link
+
+
+- name: Ensure /etc/profile.d exists
+  file:
+    path: /etc/profile.d
+    state: directory
+    mode: '0755'
+
+- name: Set environment variables for Tomcat
+  lineinfile:
+    path: /etc/profile.d/tomcat.sh
+    line: "export CATALINA_HOME=/opt/tomcat"
+    create: yes
+
+
+- name: Create systemd service file for Tomcat
+  copy:
+    dest: /etc/systemd/system/tomcat.service
+    content: |
+      [Unit]
+      Description=Apache Tomcat Web Application Container
+      After=network.target
+
+      [Service]
+      Type=forking
+      ExecStart=/opt/tomcat/bin/startup.sh
+      ExecStop=/opt/tomcat/bin/shutdown.sh
+      User=root
+      Group=root
+      Environment="CATALINA_HOME=/opt/tomcat"
+      WorkingDirectory=/opt/tomcat
+      PIDFile=/opt/tomcat/temp/tomcat.pid
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Start Tomcat
+  systemd:
+    name: apache2
+    state: started
+    enabled: yes
+
